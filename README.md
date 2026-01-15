@@ -19,38 +19,52 @@ This framework delivers a scalable, containerized solution for performance testi
 
 ## Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│     Grafana     │◄───┤    Prometheus    │◄───┤   Locust Master     │
-│ (Visualization) │    │ (Metrics Store)  │    │ (Test Controller)   │
-│                 │    │ + Alerting       │    │ + Custom Metrics    │
-└─────────────────┘    └──────────────────┘    └──────────┬──────────┘
-    │                                                      │
-    │ ┌──────────────────────────────────────────────────┐ │
-    │ │              Enhanced Dashboards:                │ │
-    │ │              • Load Test Metrics                 │ │
-    │ │              • Infrastructure Monitoring         │ │
-    │ │              • Performance KPIs                  │ │
-    │ └──────────────────────────────────────────────────┘ │
-    │                                                      │
-    └──────────────────────────────────┬───────────────────┘
-                                       │
-             ┌─────────────────────────┼─────────────────────────┐
-             │                         │                         │
-       ┌─────▼─────┐             ┌─────▼─────┐             ┌─────▼─────┐
-       │  Locust   │             │  Locust   │             │  Locust   │
-       │  Worker   │             │  Worker   │             │  Worker   │
-       └───────────┘             └───────────┘             └───────────┘
-             │                         │                         │
-             └─────────────┬───────────┴─────────────┬───────────┘
-                           │                         │
-                 ┌─────────▼─────────┐     ┌─────────▼─────────┐
-                 │  Target Service   │     │   Custom Metrics  │
-                 │ (App Under Test)  │     │   • Health Status │
-                 │ + Health Checks   │     │   • Request Counts│
-                 └───────────────────┘     │   • Response Times│
-                                           │   • Active Users  │
-                                           └───────────────────┘
+```mermaid
+graph TD
+    subgraph Monitoring ["Monitoring & Observability"]
+        Grafana["Grafana<br/>(Visualization)"]
+        Prometheus["Prometheus<br/>(Metrics Store)<br/>+ Alerting"]
+        
+        Prometheus --> Grafana
+    end
+
+    subgraph Control ["Test Orchestration"]
+        LocustMaster["Locust Master<br/>(Test Controller)<br/>+ Custom Metrics"]
+        LocustMaster --> Prometheus
+    end
+
+    subgraph Dashboards ["Enhanced Dashboards"]
+        D1["• Load Test Metrics"]
+        D2["• Infrastructure Monitoring"]
+        D3["• Performance KPIs"]
+        
+        Grafana -.-> D1
+        Grafana -.-> D2
+        Grafana -.-> D3
+    end
+
+    subgraph Generation ["Distributed Load Generation"]
+        W1["Locust Worker"]
+        W2["Locust Worker"]
+        W3["Locust Worker"]
+        
+        LocustMaster --> W1
+        LocustMaster --> W2
+        LocustMaster --> W3
+    end
+
+    subgraph Targets ["Target System"]
+        TargetService["Target Service<br/>(App Under Test)<br/>+ Health Checks"]
+        CustomMetrics["Custom Metrics<br/>• Health Status<br/>• Request Counts<br/>• Response Times<br/>• Active Users"]
+        
+        W1 & W2 & W3 --> TargetService
+        W1 & W2 & W3 --> CustomMetrics
+    end
+
+    style Grafana fill:#f9f,stroke:#333,stroke-width:2px
+    style Prometheus fill:#ff9,stroke:#333,stroke-width:2px
+    style LocustMaster fill:#bbf,stroke:#333,stroke-width:2px
+    style TargetService fill:#bfb,stroke:#333,stroke-width:2px
 ```
 
 ## Core Components
