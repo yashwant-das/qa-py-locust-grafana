@@ -1,4 +1,4 @@
-# Enterprise Performance Testing Framework
+# Performance Locust Framework
 
 A comprehensive, enterprise-grade performance and load testing framework designed for modern web applications and APIs. This framework provides a complete observability stack with advanced monitoring, custom metrics, and production-ready configurations.
 
@@ -99,7 +99,7 @@ graph TD
 1. **Clone and Navigate:**
    ```bash
    git clone <repository-url>
-   cd performance-testing-framework
+   cd performance-locust-framework
    ```
 
 2. **Launch the Framework:**
