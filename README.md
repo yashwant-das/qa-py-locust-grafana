@@ -99,7 +99,7 @@ graph TD
 1. **Clone and Navigate:**
    ```bash
    git clone <repository-url>
-   cd performance-locust-framework
+   cd qa-py-locust-grafana
    ```
 
 2. **Launch the Framework:**
