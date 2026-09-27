@@ -613,6 +613,10 @@ This framework is designed to scale with your needs:
 
 Start testing with confidence using this enterprise-grade performance testing foundation!
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ---
 
 **Last Updated**: July 2025 | **Framework Version**: 2.0 Enterprise Edition
