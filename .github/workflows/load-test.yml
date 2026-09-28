@@ -1,0 +1,59 @@
+name: Load test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-load:
+    name: Compose check and smoke load test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Start the target app
+        run: docker compose up --build --detach --wait target-app
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Locust
+        run: pip install locust
+
+      - name: Run a 60-second headless load test
+        run: |
+          mkdir -p reports
+          locust -f locustfiles/scenarios/simple_load.py \
+            --headless --users 20 --spawn-rate 5 --run-time 60s \
+            --host http://localhost:5001 \
+            --html reports/locust-report.html \
+            --csv reports/locust \
+            --only-summary
+
+      - name: Upload Locust report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: locust-report
+          path: reports/
+          retention-days: 30
+
+      - name: Show target app logs on failure
+        if: failure()
+        run: docker compose logs target-app
+
+      - name: Stop services
+        if: always()
+        run: docker compose down --volumes

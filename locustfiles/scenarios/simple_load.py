@@ -26,7 +26,7 @@ class SimpleUser(HttpUser):
         """
         Simulates a GET request to fetch a specific user by a random ID.
         """
-        user_id = random.randint(1, 10)  # Assuming user IDs are between 1 and 10
+        user_id = random.randint(1, 5)  # The target app seeds users 1-5 at startup
         self.client.get(f"/users/{user_id}", name="/users/[id]")
 
     @task
