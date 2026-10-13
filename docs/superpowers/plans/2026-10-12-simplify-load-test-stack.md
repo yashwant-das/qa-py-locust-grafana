@@ -917,6 +917,7 @@ print(json.dumps(dashboard, indent=2))
 Run it:
 
 ```bash
+mkdir -p grafana/dashboards  # Step 1 removed the last files in it, so git removed the directory
 python3 "$GEN_DIR/gen_dashboard.py" > grafana/dashboards/load_test.json
 jq '.panels | length' grafana/dashboards/load_test.json
 jq -r '.uid, .title' grafana/dashboards/load_test.json

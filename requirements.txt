@@ -1,3 +1,0 @@
-locust
-locust-plugins
-prometheus-client
