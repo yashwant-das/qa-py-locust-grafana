@@ -1,262 +1,126 @@
+import itertools
 import random
-import time
-import logging
-from flask import Flask, jsonify, request
-from datetime import datetime
 import threading
+import time
+from datetime import datetime, timezone
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from flask import Flask, g, jsonify, request
+from prometheus_client import CONTENT_TYPE_LATEST, Gauge, Histogram, generate_latest
 
 app = Flask(__name__)
 
-# In-memory "database" of users
-users = [
-    {"id": 1, "name": "Alice", "email": "alice@example.com", "created_at": "2024-01-01T00:00:00Z"},
-    {"id": 2, "name": "Bob", "email": "bob@example.com", "created_at": "2024-01-01T00:00:00Z"},
-    {"id": 3, "name": "Charlie", "email": "charlie@example.com", "created_at": "2024-01-01T00:00:00Z"},
-    {"id": 4, "name": "David", "email": "david@example.com", "created_at": "2024-01-01T00:00:00Z"},
-    {"id": 5, "name": "Eve", "email": "eve@example.com", "created_at": "2024-01-01T00:00:00Z"},
-]
-next_user_id = 6
+SEED_NAMES = ["Alice", "Bob", "Charlie", "David", "Eve"]
+MAX_USERS = 1000
+UNMEASURED_PATHS = {"/metrics", "/health"}
 
-# Simple metrics tracking
-metrics = {
-    "requests_total": 0,
-    "requests_success": 0,
-    "requests_error": 0,
-    "response_time_sum": 0.0,
-    "active_connections": 0
-}
-metrics_lock = threading.Lock()
+REQUEST_DURATION = Histogram(
+    "app_http_request_duration_seconds",
+    "Time spent handling a request, by method, route and status.",
+    ["method", "route", "status"],
+    buckets=(0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0, 2.5),
+)
+IN_FLIGHT = Gauge("app_http_requests_in_flight", "Requests currently being handled.")
+
+users = {}
+user_ids = itertools.count(1)
+users_lock = threading.Lock()
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def add_user(name, email):
+    with users_lock:
+        user = {"id": next(user_ids), "name": name, "email": email, "created_at": now()}
+        users[user["id"]] = user
+        if len(users) > MAX_USERS:
+            # dicts keep insertion order, so this is the oldest user that is not a seed
+            del users[next(user_id for user_id in users if user_id > len(SEED_NAMES))]
+    return user
+
+
+for seed_name in SEED_NAMES:
+    add_user(seed_name, f"{seed_name.lower()}@example.com")
+
+
+def simulate_work(low, high):
+    time.sleep(random.uniform(low, high))
+
 
 @app.before_request
-def before_request():
-    """Track request start time and increment connection count."""
-    request.start_time = time.time()
-    with metrics_lock:
-        metrics["active_connections"] += 1
+def start_timer():
+    if request.path not in UNMEASURED_PATHS:
+        g.started = time.perf_counter()
+        IN_FLIGHT.inc()
+
 
 @app.after_request
-def after_request(response):
-    """Track request completion and update metrics."""
-    response_time = time.time() - request.start_time
-    
-    with metrics_lock:
-        metrics["requests_total"] += 1
-        metrics["active_connections"] -= 1
-        metrics["response_time_sum"] += response_time
-        
-        if 200 <= response.status_code < 400:
-            metrics["requests_success"] += 1
-        else:
-            metrics["requests_error"] += 1
-    
+def record_request(response):
+    started = g.pop("started", None)
+    if started is not None:
+        IN_FLIGHT.dec()
+        route = request.url_rule.rule if request.url_rule else "unmatched"
+        REQUEST_DURATION.labels(request.method, route, response.status_code).observe(time.perf_counter() - started)
     return response
 
-@app.route('/metrics')
-def get_metrics():
-    """Prometheus-style metrics endpoint."""
-    with metrics_lock:
-        current_metrics = metrics.copy()
-    
-    # Calculate average response time
-    avg_response_time = 0
-    if current_metrics["requests_total"] > 0:
-        avg_response_time = current_metrics["response_time_sum"] / current_metrics["requests_total"]
-    
-    prometheus_metrics = f"""# HELP app_requests_total Total number of requests
-# TYPE app_requests_total counter
-app_requests_total {current_metrics["requests_total"]}
-
-# HELP app_requests_success_total Total number of successful requests
-# TYPE app_requests_success_total counter
-app_requests_success_total {current_metrics["requests_success"]}
-
-# HELP app_requests_error_total Total number of error requests
-# TYPE app_requests_error_total counter
-app_requests_error_total {current_metrics["requests_error"]}
-
-# HELP app_active_connections Current number of active connections
-# TYPE app_active_connections gauge
-app_active_connections {current_metrics["active_connections"]}
-
-# HELP app_response_time_avg Average response time in seconds
-# TYPE app_response_time_avg gauge
-app_response_time_avg {avg_response_time:.6f}
-
-# HELP app_users_count Total number of users in database
-# TYPE app_users_count gauge
-app_users_count {len(users)}
-
-# HELP app_health_status Application health status (1 = healthy, 0 = unhealthy)
-# TYPE app_health_status gauge
-app_health_status 1
-"""
-    
-    return prometheus_metrics, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 @app.errorhandler(404)
 def not_found(error):
-    """Handle 404 errors."""
-    return jsonify({"error": "Resource not found", "status": 404}), 404
+    return jsonify({"error": "Resource not found"}), 404
 
-@app.errorhandler(400)
-def bad_request(error):
-    """Handle 400 errors."""
-    return jsonify({"error": "Bad request", "status": 400}), 400
 
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle 500 errors."""
-    logger.error(f"Internal server error: {error}")
-    return jsonify({"error": "Internal server error", "status": 500}), 500
-
-@app.route('/')
+@app.route("/")
 def index():
-    """A simple welcome message with API info."""
-    return jsonify({
-        "message": "Welcome to the Performance Testing Target API!",
-        "version": "1.0.0",
-        "endpoints": {
-            "users": "/users",
-            "user_by_id": "/users/{id}",
-            "health": "/health"
-        },
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    })
+    return jsonify({"message": "Load test target API", "endpoints": ["/users", "/users/<id>", "/health", "/metrics"]})
 
-@app.route('/health')
+
+@app.route("/health")
 def health():
-    """Health check endpoint."""
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "users_count": len(users)
-    })
+    return jsonify({"status": "healthy"})
 
-@app.route('/users', methods=['GET'])
-def get_users():
-    """Returns a JSON list of all users with pagination support."""
-    try:
-        # Simulate processing time
-        time.sleep(random.uniform(0.05, 0.1))
-        
-        # Get pagination parameters
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        
-        # Validate pagination parameters
-        if page < 1 or per_page < 1 or per_page > 100:
-            return jsonify({"error": "Invalid pagination parameters"}), 400
-        
-        # Calculate pagination
-        start = (page - 1) * per_page
-        end = start + per_page
-        paginated_users = users[start:end]
-        
-        response = {
-            "users": paginated_users,
-            "pagination": {
-                "page": page,
-                "per_page": per_page,
-                "total": len(users),
-                "pages": (len(users) + per_page - 1) // per_page
-            },
-            "timestamp": datetime.utcnow().isoformat() + "Z"
-        }
-        
-        logger.info(f"Retrieved {len(paginated_users)} users (page {page})")
-        return jsonify(response)
-        
-    except Exception as e:
-        logger.error(f"Error retrieving users: {e}")
-        return jsonify({"error": "Failed to retrieve users"}), 500
 
-@app.route('/users/<int:user_id>', methods=['GET'])
+@app.route("/metrics")
+def metrics():
+    return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
+
+@app.route("/users", methods=["GET"])
+def list_users():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 10, type=int)
+    if page < 1 or not 1 <= per_page <= 100:
+        return jsonify({"error": "Invalid pagination parameters"}), 400
+
+    simulate_work(0.05, 0.1)
+    with users_lock:
+        all_users = list(users.values())
+    start = (page - 1) * per_page
+    return jsonify({"users": all_users[start : start + per_page], "page": page, "per_page": per_page, "total": len(all_users)})
+
+
+@app.route("/users/<int:user_id>", methods=["GET"])
 def get_user(user_id):
-    """Returns a single user by ID."""
-    try:
-        # Simulate processing time
-        time.sleep(random.uniform(0.05, 0.2))
-        
-        user = next((user for user in users if user["id"] == user_id), None)
-        
-        if user:
-            logger.info(f"Retrieved user {user_id}")
-            return jsonify({
-                "user": user,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            })
-        else:
-            logger.warning(f"User {user_id} not found")
-            return jsonify({
-                "error": f"User with id {user_id} not found",
-                "status": 404,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }), 404
-            
-    except Exception as e:
-        logger.error(f"Error retrieving user {user_id}: {e}")
-        return jsonify({"error": "Failed to retrieve user"}), 500
+    simulate_work(0.05, 0.2)
+    user = users.get(user_id)
+    if user is None:
+        return jsonify({"error": f"User {user_id} not found"}), 404
+    return jsonify({"user": user})
 
-@app.route('/users', methods=['POST'])
+
+@app.route("/users", methods=["POST"])
 def create_user():
-    """Creates a new user."""
-    global next_user_id
-    
-    try:
-        # Validate request
-        if not request.json:
-            return jsonify({
-                "error": "Request must be JSON",
-                "status": 400,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }), 400
-        
-        # Validate required fields
-        if 'name' not in request.json or not request.json['name'].strip():
-            return jsonify({
-                "error": "Missing or empty 'name' field",
-                "status": 400,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }), 400
-        
-        # Validate email format if provided
-        email = request.json.get('email', '')
-        if email and '@' not in email:
-            return jsonify({
-                "error": "Invalid email format",
-                "status": 400,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }), 400
-        
-        # Create new user
-        new_user = {
-            'id': next_user_id,
-            'name': request.json['name'].strip(),
-            'email': email,
-            'created_at': datetime.utcnow().isoformat() + "Z"
-        }
-        
-        users.append(new_user)
-        next_user_id += 1
-        
-        # Simulate processing time
-        time.sleep(random.uniform(0.1, 0.3))
-        
-        logger.info(f"Created user {new_user['id']}: {new_user['name']}")
-        
-        return jsonify({
-            "user": new_user,
-            "message": "User created successfully",
-            "timestamp": datetime.utcnow().isoformat() + "Z"
-        }), 201
-        
-    except Exception as e:
-        logger.error(f"Error creating user: {e}")
-        return jsonify({"error": "Failed to create user"}), 500
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    name = body.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return jsonify({"error": "'name' must be a non-empty string"}), 400
+
+    email = body.get("email", "")
+    if not isinstance(email, str) or (email and "@" not in email):
+        return jsonify({"error": "'email' must be a string containing '@'"}), 400
+
+    simulate_work(0.1, 0.3)
+    return jsonify({"user": add_user(name.strip(), email)}), 201
