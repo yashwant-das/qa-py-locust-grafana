@@ -1,26 +1,16 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+FROM python:3.13-slim
 
-# Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
-# Copy the requirements file into the container at /usr/src/app
-COPY requirements.txt ./
-
-# Install any needed packages specified in requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the current directory contents into the container at /usr/src/app
-COPY . .
+COPY app.py .
 
-# Make port 5000 available to the world outside this container
 EXPOSE 5000
 
-# Define environment variable
-ENV FLASK_APP=app.py
-
-# Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0"]
+# One process keeps the Prometheus metrics in a single registry, and the small
+# thread pool is what saturates during the spike scenario. Keep-alive outlasts
+# the 1-3 second pause between a Locust user's requests, so idle connections
+# are not closed just as the client reuses them.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "--keep-alive", "5", "app:app"]
