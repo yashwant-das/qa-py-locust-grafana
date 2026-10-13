@@ -1239,6 +1239,8 @@ cat reports/summary.md
 docker compose down
 ```
 
+Note from the 2026-10-13 run: Claude Code's safety check refuses `bash -c` on text it cannot inspect, so the helper was not used there. The same commands were typed out in order instead, with the results below.
+
 Expected, in order: `24 passed`; a healthy stack; four `ok:` lines for the queries and `ok: Grafana can query Prometheus and the dashboard is loaded`; `"message": "Test stopped"`; a Locust summary with about 570 requests, 0 failures and an aggregated p95 near 240 ms, then `exit=0`; a Markdown table with one row per request name plus an `Aggregated` row. `reports/` is ignored by git.
 
 - [ ] **Step 3: Commit**
