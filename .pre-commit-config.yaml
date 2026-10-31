@@ -20,12 +20,12 @@ repos:
       - id: ruff
         name: Ruff lint
         language: system
-        entry: uv run --no-sync ruff check
+        entry: uv run --locked --no-sync ruff check
         types: [python]
       - id: ruff-format
         name: Ruff format
         language: system
-        entry: uv run --no-sync ruff format --check
+        entry: uv run --locked --no-sync ruff format --check
         types: [python]
       - id: markdownlint-cli2
         name: Markdown lint

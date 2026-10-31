@@ -205,3 +205,7 @@ job's configuration validation, telemetry probes, gated load run and result tabl
 are retained in `scripts/verify-stack.sh` with local reports and owned cleanup.
 This explicit instruction supersedes references above to a hosted stack/load job,
 uploaded load artifacts and a required hosted integration check.
+
+## Dependency completion and PR publication
+
+The owner authorized completing the work and creating a PR. [PR #5](https://github.com/yashwant-das/qa-py-locust-grafana/pull/5) is open. Its initial service-free quality job passed; a temporary resolver generated `uv.lock` and both hashed exports with uv 0.13.6. The final workflow removes the resolver, installs with `uv sync --locked` and checks export drift. This supersedes the earlier pending-lock/fallback status. Docker/load verification remains local by explicit instruction.

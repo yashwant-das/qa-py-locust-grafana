@@ -13,70 +13,75 @@ runtime. Installation requires network access; checks need no secrets or service
 after their dependencies and hook environments are installed.
 
 ```bash
-uv venv --python 3.13
-uv pip sync requirements-dev.txt
-uv run --no-sync pre-commit install
-uv run --no-sync pre-commit install-hooks
+uv sync --locked
+uv run --locked --no-sync pre-commit install
+uv run --locked --no-sync pre-commit install-hooks
 ```
 
 The requirements install path remains available without uv:
 
 ```bash
 python3.13 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pip install --require-hashes -r requirements-dev.txt
 ```
 
 The repository is a non-packaged, multi-service project. `pytest.ini` keeps
 `target-app` and `locustfiles` on the import path and discovers `tests/`. Do not
 turn those functional folders into a distributable package just for uniformity.
 
-### Dependency sources and current limitation
+### Dependency sources and exports
 
-[pyproject.toml](../pyproject.toml) records direct dependencies and tool settings.
-The two fully pinned requirements files currently preserve the working pip/Compose
-workflow: [runtime](../target-app/requirements.txt) contains the app's dependency
-closure; [development](../requirements-dev.txt) includes it and adds the load-test
-and quality-tool closures. Docker retains its standalone `./target-app` context.
-Use `uv pip check` after installation to reject dependency conflicts.
+[pyproject.toml](../pyproject.toml) is the direct-dependency and tooling authority;
+[`uv.lock`](../uv.lock) records the resolved dependency set. Install with
+`uv sync --locked` locally and in CI. The `--no-sync` check commands below use
+that prepared environment without changing dependencies during a staged-file check.
 
-The planned uv lock and hash-bearing exports remain **pending**, not an approved
-exception or a claim of complete dependency adoption. Shell DNS prevented registry
-resolution, and uv 0.13.6 could not read the older cached Flask/Locust registry
-metadata. Do not run `uv sync` or plain `uv run` expecting a committed lock; use
-`uv run --no-sync` with the installed requirements environment for now.
+The generated [runtime requirements](../target-app/requirements.txt) contain only
+the app dependency closure; [developer requirements](../requirements-dev.txt)
+contain the app, load-test and quality groups. Both include hashes. Docker keeps
+its standalone `./target-app` build context and enforces hashes during pip install.
 
-At the next network-enabled dependency review, resolve `uv.lock` on Python 3.13,
-sync from it, generate both requirements exports with hashes and `--locked
---no-emit-project` (runtime: `--no-dev`; developer: `--all-groups`), compare generated
-exports in CI and switch hooks/CI to locked project installs together. Owner:
-Yashwant Das; trigger: network-enabled clean install and full-stack verification.
-Keep the requirements install until that migration is verified.
+Regenerate and check exports after changing dependencies:
 
-Existing app/image versions were retained because their OTLP and saturation
-compatibility cannot be re-proven without Docker. New tools are Ruff 0.17.1,
-mypy 2.4.0 and pre-commit 4.7.0. Official [Ruff](https://pypi.org/project/ruff/0.17.1/),
+```bash
+uv lock
+uv export --locked --no-dev --no-emit-project --no-header -o target-app/requirements.txt
+uv export --locked --all-groups --no-emit-project --no-header -o requirements-dev.txt
+bash scripts/check-exports.sh
+```
+
+The check generates temporary exports and compares them byte-for-byte. CI runs
+it alongside dependency consistency checks. Do not independently edit generated
+requirements. Weekly Dependabot PRs cover uv, GitHub Actions, the target
+Dockerfile and Compose images; regenerate exports when reviewing Python updates.
+Major updates require explicit compatibility review.
+
+The existing application/image versions remain deliberately unchanged because
+live OTLP/saturation compatibility could not be re-proven in this host. New
+quality tools are Ruff 0.17.1, mypy 2.4.0 and pre-commit 4.7.0. Their official
+[Ruff](https://pypi.org/project/ruff/0.17.1/),
 [mypy](https://pypi.org/project/mypy/2.4.0/) and
-[pre-commit](https://pypi.org/project/pre-commit/4.7.0/) pages were inspected; mypy
-2.4.1 was available but unavailable in the local cache. Current-version selection,
-package advisory review and fresh installs remain pending; no latest-version or
-security-clearance claim is made.
+[pre-commit](https://pypi.org/project/pre-commit/4.7.0/) package pages were inspected.
+Mypy 2.4.1 was available; the tested 2.4.0 tool baseline is retained. This does not
+claim every dependency is the latest or free of advisories. Review newer packages
+and image versions together with the local stack checks before adopting them.
 
-Update direct pins, their resolved requirements closures, images where applicable
-and affected README versions together. Test package metadata and both runtime and
-developer environments before accepting updates. Do not manually loosen a pin to
-make a test pass. Weekly Dependabot PRs cover pip, GitHub Actions, the target
-Dockerfile and Compose images; major updates require explicit compatibility review.
-The eventual uv migration must change the Python updater ecosystem at the same time.
+Local shell DNS initially blocked resolution. A temporary dependency-resolution
+job in [PR #5](https://github.com/yashwant-das/qa-py-locust-grafana/pull/5) generated
+the lock and hashed exports using pinned uv 0.13.6 on Python 3.13; that job was
+removed once the files were recovered. The final cloud workflow runs only
+service-free quality checks; dependency resolution does not run Docker or Locust.
 
 ## Local quality checks
 
 ```bash
-uv run --no-sync ruff check .
-uv run --no-sync ruff format --check .
-uv run --no-sync mypy target-app locustfiles
-uv run --no-sync pytest -q
+uv run --locked --no-sync ruff check .
+uv run --locked --no-sync ruff format --check .
+uv run --locked --no-sync mypy target-app locustfiles
+uv run --locked --no-sync pytest -q
 uv pip check
-uv run --no-sync pre-commit run --all-files
+bash scripts/check-exports.sh
+uv run --locked --no-sync pre-commit run --all-files
 ```
 
 Ruff uses Python 3.13, a 120-character line length, its default error rules and
@@ -91,7 +96,7 @@ folders and generated reports are excluded. Current guides are included.
 Review and restage any hook fixes yourself; do not bypass failed hooks or stage
 unrelated edits. Full tests/type checking and Docker stay outside commit hooks.
 
-For Markdown alone, run `uv run --no-sync pre-commit run markdownlint-cli2
+For Markdown alone, run `uv run --locked --no-sync pre-commit run markdownlint-cli2
 --all-files`. An equivalent CLI is `npx --yes --package=markdownlint-cli2@0.24.0
 markdownlint-cli2 README.md AGENTS.md 'docs/*.md'`. Use Node 24; the pinned hook
 installs its own Node and uses the same `.markdownlint-cli2.jsonc` configuration.
@@ -141,7 +146,7 @@ bodies, status expectations and route-template labels.
 rates are 10, 50 and 50 respectively. Verify discovery with:
 
 ```bash
-uv run --no-sync locust -f locustfiles/spike.py --list
+uv run --locked --no-sync locust -f locustfiles/spike.py --list
 LOCUSTFILE=spike.py docker compose up -d --wait
 ```
 
@@ -166,7 +171,7 @@ same eight server threads:
 ```bash
 curl -f http://localhost:8089/stop
 mkdir -p reports
-uv run --no-sync locust -f locustfiles/steady.py \
+uv run --locked --no-sync locust -f locustfiles/steady.py \
   --headless --users 20 --spawn-rate 5 --run-time 60s \
   --host http://localhost:5001 --max-p95-ms 500 --max-fail-ratio 0.01 \
   --html reports/locust-report.html --csv reports/locust --only-summary
@@ -247,7 +252,8 @@ Profile: `complete`. Policy pin:
 [`a429dd2f2da55a4c3e1c73c7c0d1111f9cd0b9a9`](https://github.com/yashwant-das/repo-standards/tree/a429dd2f2da55a4c3e1c73c7c0d1111f9cd0b9a9).
 Execution began 2026-10-31 from `a7580551727e14352542f6208c109cb9aee595e9` on
 `codex/adopt-repo-standards`. The GitHub connector confirmed that same `main` SHA
-after the shell fetch failed DNS; no remote branch or settings mutation occurred.
+after the shell fetch failed DNS. The owner subsequently authorized publication
+as PR #5; no repository settings were changed.
 
 The original showcase narrative, scenarios, thresholds, alerts, stack and quickstart
 remain on the landing page. Following the owner's later instruction, descriptions
@@ -268,15 +274,16 @@ into these guides while preserving their original historical source.
 | Compose/workflow/dashboard | `docker compose config --quiet`, YAML/JSON parsing, all action SHA pins, least privilege, checkout settings, job timeouts and embedded Bash syntax pass; dashboard still has 11 panels |
 | Documentation retention | Every original README content block retained (requirements tree row expanded with quality tools); 18 local file/anchor links resolve; PNG and historical plan hashes match the base |
 | New diagram visual rendering | Pending; no local Mermaid renderer was available. Root diagram source is unchanged |
-| Fresh registry/uv lock/hash exports | Blocked by shell DNS and old cache metadata; pending dependency adoption |
+| Registry resolution/lock/hash exports | Completed by the temporary cloud resolver in run `41210055820`; local `uv lock --check --offline` and export reproduction pass |
 | Docker build, promtool, live stack/spike/alerts/two-worker checks | Pending: Docker socket absent; `open -a Docker` could not locate an application. Native gunicorn binding to a task-owned loopback port also failed with sandbox `Operation not permitted` |
-| Hosted checks on adoption head | Not run; no branch publication. Hosted scope is now only the service-free quality job |
+| Hosted checks | Initial PR head `fd652d2`: `Offline quality` and temporary resolver both passed in run `41210055820`. Final locked-install head is verified separately below |
 | Repository enforcement and scanning | Availability/enforcement not yet verified; no settings changed |
 
-Requirements fallback and unavailable checks are pending owner review, not approved
-exceptions. Owner: Yashwant Das. Review triggers: restored registry access for the
-dependency migration, working Docker for controlled integrations, and a published
-review branch for current-head hosted checks. Keep implementation and evidence
+Live integration, diagram rendering and settings checks remain pending owner
+review, not approved exceptions. Owner: Yashwant Das. Review triggers: working
+local Docker for controlled integrations, a rendering environment for diagrams,
+and owner review for settings. Dependency locking is now implemented; it is no
+longer a pending requirements fallback. Keep implementation and evidence
 status separate; this is not a full-compliance or merge-readiness claim. The
 whole-branch review was performed inline, honoring this project's no-subagent
 preference; independent review remains an owner decision.

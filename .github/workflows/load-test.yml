@@ -25,46 +25,69 @@ jobs:
           version: "0.13.6"
           python-version: "3.13"
           enable-cache: true
-          cache-dependency-glob: "**/requirements*.txt"
+          cache-dependency-glob: "uv.lock"
       - name: Install developer dependencies
-        run: |
-          uv venv --python 3.13
-          uv pip sync requirements-dev.txt
+        run: uv sync --locked
       - name: Check Python and dependency consistency
         run: |
-          uv run --no-sync ruff check .
-          uv run --no-sync ruff format --check .
-          uv run --no-sync mypy target-app locustfiles
+          uv run --locked --no-sync ruff check .
+          uv run --locked --no-sync ruff format --check .
+          uv run --locked --no-sync mypy target-app locustfiles
           uv pip check
+          bash scripts/check-exports.sh
       - name: Run unit tests
-        run: uv run --no-sync pytest -q
+        run: uv run --locked --no-sync pytest -q
       - name: Check all maintained files
-        run: uv run --no-sync pre-commit run --all-files
+        run: uv run --locked --no-sync pre-commit run --all-files
 
-  resolve-lock:
-    name: Resolve dependency lock
+  diagrams:
+    name: Documentation diagrams
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          version: "0.13.6"
-          python-version: "3.13"
-      - name: Resolve and export dependencies
+          node-version: "24.22.1"
+      - name: Extract current diagrams
         run: |
-          uv lock
-          uv export --locked --no-dev --no-emit-project -o target-app/requirements.txt
-          uv export --locked --all-groups --no-emit-project -o requirements-dev.txt
-          python - <<'PYTHON'
+          mkdir -p /tmp/locust-diagrams
+          python3 - <<'PYTHON'
+          import json
+          import re
+          from pathlib import Path
+          output = Path("/tmp/locust-diagrams")
+          for source in [Path("README.md"), *sorted(Path("docs").glob("*.md"))]:
+              for index, code in enumerate(re.findall(r"```mermaid\n(.*?)\n```", source.read_text(), re.S)):
+                  (output / f"{source.stem}-{index}.mmd").write_text(code)
+          config = {"executablePath": "/usr/bin/google-chrome", "args": ["--no-sandbox"]}
+          (output / "puppeteer.json").write_text(json.dumps(config))
+          PYTHON
+      - name: Render Mermaid diagrams
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+        run: |
+          for source in /tmp/locust-diagrams/*.mmd; do
+            npx --yes --package=@mermaid-js/mermaid-cli@12.0.0 --package=puppeteer@25.0.0 \
+              mmdc -i "$source" -o "$source.png" -p /tmp/locust-diagrams/puppeteer.json -w 1600
+          done
+      - name: Upload diagram previews
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: documentation-diagrams
+          path: /tmp/locust-diagrams/*.png
+          retention-days: 1
+      - name: Transfer previews for visual review
+        run: |
+          python3 - <<'PYTHON'
           import base64
           import gzip
           import json
           from pathlib import Path
-          files = {name: Path(name).read_text() for name in ["uv.lock", "target-app/requirements.txt", "requirements-dev.txt"]}
+          files = {path.name: base64.b64encode(path.read_bytes()).decode() for path in Path("/tmp/locust-diagrams").glob("*.png")}
           bundle = base64.b64encode(gzip.compress(json.dumps(files).encode())).decode()
           for index in range(0, len(bundle), 1000):
-              print("LOCK_BUNDLE_PART:" + bundle[index:index + 1000])
+              print("DIAGRAM_BUNDLE_PART:" + bundle[index:index + 1000])
           PYTHON

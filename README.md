@@ -102,11 +102,11 @@ locust -f locustfiles/steady.py --headless --users 20 --spawn-rate 5 --run-time 
 After the [developer setup](docs/development.md#setup), check Python and documentation without starting Docker:
 
 ```bash
-uv run --no-sync ruff check .
-uv run --no-sync ruff format --check .
-uv run --no-sync mypy target-app locustfiles
-uv run --no-sync pytest -q
-uv run --no-sync pre-commit run --all-files
+uv run --locked --no-sync ruff check .
+uv run --locked --no-sync ruff format --check .
+uv run --locked --no-sync mypy target-app locustfiles
+uv run --locked --no-sync pytest -q
+uv run --locked --no-sync pre-commit run --all-files
 ```
 
 These checks cover code, API/metrics behavior, threshold exits and maintained documentation. The separate local stack check verifies Docker wiring, telemetry delivery and the controlled load gate. See [development](docs/development.md) for configuration, quality gates, local reports and troubleshooting.

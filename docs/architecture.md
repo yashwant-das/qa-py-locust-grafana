@@ -144,8 +144,9 @@ exporter, tracing backend, database or notification service is needed.
 
 `locustfiles/` contains behavior and shape, `target-app/` the standalone build
 context, `grafana/` dashboard/provisioning/Prometheus config and `tests/` behavioral
-checks. The root manifest records direct dependencies and tool settings; pinned
-requirements preserve pip and Docker entry points while uv locking remains pending.
+checks. The root manifest records direct dependencies and tool settings; `uv.lock`
+locks the environment and generated hash-bearing requirements preserve pip and
+Docker entry points.
 See [development](development.md)
 for execution, extension and verification details, and the [historical design
 record](superpowers/plans/2026-10-12-simplify-load-test-stack.md) for original experiments.

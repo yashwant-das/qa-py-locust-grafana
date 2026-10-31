@@ -52,12 +52,13 @@ echo "ok: Grafana can query Prometheus and the dashboard is loaded"
 
 curl -sf http://localhost:8089/stop
 mkdir -p reports
-uv run --no-sync locust -f locustfiles/steady.py \
+load_status=0
+uv run --locked --no-sync locust -f locustfiles/steady.py \
   --headless --users 20 --spawn-rate 5 --run-time 60s \
   --host http://localhost:5001 --max-p95-ms 500 --max-fail-ratio 0.01 \
-  --html reports/locust-report.html --csv reports/locust --only-summary
+  --html reports/locust-report.html --csv reports/locust --only-summary || load_status=$?
 
-uv run --no-sync python - <<'PY' > reports/locust-summary.md
+uv run --locked --no-sync python - <<'PY' > reports/locust-summary.md
 import csv
 from pathlib import Path
 
@@ -71,3 +72,4 @@ with Path("reports/locust_stats.csv").open() as stats:
         print("| " + " | ".join(row[column] for column in columns) + " |")
 PY
 echo "Reports: reports/locust-report.html, reports/locust_*.csv, reports/locust-summary.md"
+exit "$load_status"

@@ -19,8 +19,9 @@ Do not silently repin the standards.
   choices produce the demonstrated client/server latency gap.
 - Keep loopback port bindings, anonymous Grafana Viewer access, the 20-user
   autostart, existing dashboard/datasource UIDs, request names and threshold rules.
-- Keep direct dependencies in `pyproject.toml` aligned with both pinned requirements
-  files. The uv lock migration remains pending as documented in development.
+- Manage direct dependencies in `pyproject.toml` and commit `uv.lock`. Regenerate
+  both hash-bearing requirements exports with the documented commands and check
+  them with `bash scripts/check-exports.sh`.
   Treat Locust's Python package, OTEL image and metric contracts
   as one compatibility set. Do not upgrade runtime baselines without owner review.
 - Run Docker, promtool and Locust load verification locally through
