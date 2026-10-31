@@ -2,31 +2,35 @@
 
 import logging
 import random
+from argparse import ArgumentParser, Namespace
+from typing import cast
 
 from locust import HttpUser, between, events, tag, task
+from locust.env import Environment
+from locust.stats import StatsEntry
 
 
 class ApiUser(HttpUser):
     wait_time = between(1, 3)
 
     @task(6)
-    def list_users(self):
+    def list_users(self) -> None:
         self.client.get("/users")
 
     @task(3)
-    def get_user(self):
+    def get_user(self) -> None:
         # The target app seeds users 1-5 and never evicts them
         self.client.get(f"/users/{random.randint(1, 5)}", name="/users/[id]")
 
     @task(2)
-    def create_user(self):
+    def create_user(self) -> None:
         suffix = random.randint(1000, 9999)
         payload = {"name": f"LoadUser {suffix}", "email": f"load.{suffix}@example.com"}
         self.client.post("/users", json=payload, name="/users [create]")
 
     @tag("negative")
     @task(1)
-    def get_missing_user(self):
+    def get_missing_user(self) -> None:
         # IDs start at 1, so 0 never exists
         with self.client.get("/users/0", name="/users/[missing]", catch_response=True) as response:
             if response.status_code == 404:
@@ -36,7 +40,7 @@ class ApiUser(HttpUser):
 
     @tag("negative")
     @task(1)
-    def create_invalid_user(self):
+    def create_invalid_user(self) -> None:
         payload = {"email": "no-name@example.com"}
         with self.client.post("/users", json=payload, name="/users [invalid]", catch_response=True) as response:
             if response.status_code == 400:
@@ -46,12 +50,16 @@ class ApiUser(HttpUser):
 
 
 @events.init_command_line_parser.add_listener
-def add_threshold_arguments(parser):
-    parser.add_argument("--max-p95-ms", type=float, default=0, help="Exit 1 if the overall p95 is above this many ms (0 disables)")
-    parser.add_argument("--max-fail-ratio", type=float, default=1, help="Exit 1 if the failed share is above this (1 disables)")
+def add_threshold_arguments(parser: ArgumentParser) -> None:
+    parser.add_argument(
+        "--max-p95-ms", type=float, default=0, help="Exit 1 if the overall p95 is above this many ms (0 disables)"
+    )
+    parser.add_argument(
+        "--max-fail-ratio", type=float, default=1, help="Exit 1 if the failed share is above this (1 disables)"
+    )
 
 
-def threshold_breaches(total, max_p95_ms, max_fail_ratio):
+def threshold_breaches(total: StatsEntry, max_p95_ms: float, max_fail_ratio: float) -> list[str]:
     """Return one message per breached threshold. `total` is Locust's aggregated StatsEntry."""
     if total.num_requests == 0:
         return ["no requests were made"]
@@ -66,8 +74,8 @@ def threshold_breaches(total, max_p95_ms, max_fail_ratio):
 
 
 @events.quitting.add_listener
-def apply_thresholds(environment, **kwargs):
-    options = environment.parsed_options
+def apply_thresholds(environment: Environment, **kwargs: object) -> None:
+    options = cast(Namespace, environment.parsed_options)
     if not options.max_p95_ms and options.max_fail_ratio >= 1:
         return  # thresholds are off, so Locust keeps its default exit code
 

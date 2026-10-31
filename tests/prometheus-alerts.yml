@@ -1,0 +1,103 @@
+rule_files:
+  - ../grafana/prometheus/alert_rules.yml
+evaluation_interval: 5s
+tests:
+  - name: target-down-hold-and-recovery
+    interval: 5s
+    input_series:
+      - series: 'up{job="target-app"}'
+        values: '1x2 0x5 1x5'
+    alert_rule_test:
+      - eval_time: 20s
+        alertname: TargetAppDown
+        exp_alerts: []
+      - eval_time: 30s
+        alertname: TargetAppDown
+        exp_alerts:
+          - exp_labels:
+              job: target-app
+              severity: critical
+            exp_annotations:
+              summary: Prometheus cannot scrape the target app
+      - eval_time: 45s
+        alertname: TargetAppDown
+        exp_alerts: []
+  - name: sustained-client-latency
+    interval: 5s
+    input_series:
+      - series: 'http_client_duration_milliseconds_bucket{le="500"}'
+        values: '0+50x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="1000"}'
+        values: '0+100x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="+Inf"}'
+        values: '0+100x12'
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: HighClientLatency
+        exp_alerts: []
+      - eval_time: 20s
+        alertname: HighClientLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Locust's p95 response time is above 500 ms
+  - name: sustained-server-errors
+    interval: 5s
+    input_series:
+      - series: 'app_http_request_duration_seconds_count{status="200"}'
+        values: '0+90x12'
+      - series: 'app_http_request_duration_seconds_count{status="500"}'
+        values: '0+10x12'
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: HighServerErrorRate
+        exp_alerts: []
+      - eval_time: 20s
+        alertname: HighServerErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: More than 5% of the app's responses are 5xx
+  - name: healthy-and-exact-thresholds
+    interval: 5s
+    input_series:
+      - series: 'up{job="target-app"}'
+        values: '1x12'
+      - series: 'app_http_request_duration_seconds_count{status="200"}'
+        values: '0+95x12'
+      - series: 'app_http_request_duration_seconds_count{status="500"}'
+        values: '0+5x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="500"}'
+        values: '0+95x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="1000"}'
+        values: '0+100x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="+Inf"}'
+        values: '0+100x12'
+    alert_rule_test:
+      - eval_time: 60s
+        alertname: TargetAppDown
+        exp_alerts: []
+      - eval_time: 60s
+        alertname: HighServerErrorRate
+        exp_alerts: []
+      - eval_time: 60s
+        alertname: HighClientLatency
+        exp_alerts: []
+  - name: idle-counters-do-not-fire-ratio-or-quantile-alerts
+    interval: 5s
+    input_series:
+      - series: 'app_http_request_duration_seconds_count{status="200"}'
+        values: '0x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="500"}'
+        values: '0x12'
+      - series: 'http_client_duration_milliseconds_bucket{le="+Inf"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 60s
+        alertname: HighServerErrorRate
+        exp_alerts: []
+      - eval_time: 60s
+        alertname: HighClientLatency
+        exp_alerts: []
