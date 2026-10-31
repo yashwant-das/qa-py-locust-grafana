@@ -1,0 +1,35 @@
+minimum_pre_commit_version: "4.7.0"
+default_language_version:
+  python: python3.13
+  node: "24.22.1"
+exclude: '(^|/)(\.venv|node_modules|reports|\.superpowers)/|^docs/superpowers/'
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+        args: [--assume-in-merge]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff lint
+        language: system
+        entry: uv run --no-sync ruff check
+        types: [python]
+      - id: ruff-format
+        name: Ruff format
+        language: system
+        entry: uv run --no-sync ruff format --check
+        types: [python]
+      - id: markdownlint-cli2
+        name: Markdown lint
+        language: node
+        additional_dependencies: [markdownlint-cli2@0.24.0]
+        entry: markdownlint-cli2
+        types: [markdown]

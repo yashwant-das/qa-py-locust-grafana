@@ -1,0 +1,13 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false
+  },
+  "ignores": [
+    ".venv/**",
+    ".superpowers/**",
+    "reports/**",
+    "node_modules/**",
+    "docs/superpowers/**"
+  ]
+}

@@ -1,7 +1,6 @@
+import app as target
 import pytest
 from prometheus_client import REGISTRY
-
-import app as target
 
 
 @pytest.fixture
@@ -39,7 +38,15 @@ def test_creates_user(client):
 
 @pytest.mark.parametrize(
     "payload",
-    [{}, {"name": ""}, {"name": 42}, {"name": "Grace", "email": "not-an-email"}, {"name": "Grace", "email": 7}, ["Grace"], "Grace"],
+    [
+        {},
+        {"name": ""},
+        {"name": 42},
+        {"name": "Grace", "email": "not-an-email"},
+        {"name": "Grace", "email": 7},
+        ["Grace"],
+        "Grace",
+    ],
 )
 def test_rejects_invalid_user(client, payload):
     assert client.post("/users", json=payload).status_code == 400

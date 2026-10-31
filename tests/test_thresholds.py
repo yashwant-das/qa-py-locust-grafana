@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from locust.stats import RequestStats
-
 from steady import apply_thresholds, threshold_breaches
 
 

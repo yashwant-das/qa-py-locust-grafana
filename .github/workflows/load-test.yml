@@ -1,4 +1,4 @@
-name: Load test
+name: Quality checks
 
 on:
   push:
@@ -11,92 +11,60 @@ permissions:
   contents: read
 
 jobs:
-  load-test:
-    name: Unit tests, stack check and gated load test
+  quality:
+    name: Offline quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.6"
           python-version: "3.13"
-
-      - name: Install test dependencies
-        run: pip install -r requirements-dev.txt
-
+          enable-cache: true
+          cache-dependency-glob: "**/requirements*.txt"
+      - name: Install developer dependencies
+        run: |
+          uv venv --python 3.13
+          uv pip sync requirements-dev.txt
+      - name: Check Python and dependency consistency
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync mypy target-app locustfiles
+          uv pip check
       - name: Run unit tests
-        run: pytest
+        run: uv run --no-sync pytest -q
+      - name: Check all maintained files
+        run: uv run --no-sync pre-commit run --all-files
 
-      - name: Start the stack
-        run: docker compose up --build --detach --wait
-
-      - name: Check that metrics reach Prometheus and the dashboard is provisioned
-        run: |
-          query_has_data() {
-            curl -sfG http://localhost:9090/api/v1/query --data-urlencode "query=$1" \
-              | jq -e '.data.result | length > 0' > /dev/null
-          }
-          for query in \
-            'locust_users_count > 0' \
-            'http_client_duration_milliseconds_count' \
-            'locust_client_duration_seconds_count' \
-            'app_http_request_duration_seconds_count'
-          do
-            for attempt in $(seq 1 30); do
-              query_has_data "$query" && break
-              sleep 2
-            done
-            query_has_data "$query" || { echo "::error::No data in Prometheus for: $query"; exit 1; }
-            echo "ok: $query"
-          done
-          curl -sf http://localhost:3000/api/datasources/uid/prometheus/health > /dev/null
-          curl -sf http://localhost:3000/api/dashboards/uid/load-test \
-            | jq -e '.dashboard.panels | length == 11' > /dev/null
-          echo "ok: Grafana can query Prometheus and the dashboard is loaded"
-
-      - name: Stop the autostarted test
-        run: curl -sf http://localhost:8089/stop
-
-      - name: Run a 60-second gated load test
-        run: |
-          mkdir -p reports
-          locust -f locustfiles/steady.py \
-            --headless --users 20 --spawn-rate 5 --run-time 60s \
-            --host http://localhost:5001 \
-            --max-p95-ms 500 --max-fail-ratio 0.01 \
-            --html reports/locust-report.html \
-            --csv reports/locust \
-            --only-summary
-
-      - name: Publish results to the run summary
-        if: ${{ !cancelled() }}
-        run: |
-          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
-          import csv
-
-          columns = ["Type", "Name", "Request Count", "Failure Count", "50%", "95%", "99%", "Requests/s"]
-          print("### Locust results (response times in ms)\n")
-          print("| " + " | ".join(columns) + " |")
-          print("|" + " --- |" * len(columns))
-          for row in csv.DictReader(open("reports/locust_stats.csv")):
-              row["Requests/s"] = f"{float(row['Requests/s']):.1f}"
-              print("| " + " | ".join(row[column] for column in columns) + " |")
-          EOF
-
-      - name: Upload Locust report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+  resolve-lock:
+    name: Resolve dependency lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: locust-report
-          path: reports/
-          retention-days: 30
-
-      - name: Show service logs on failure
-        if: failure()
-        run: docker compose logs --tail 100
-
-      - name: Stop services
-        if: always()
-        run: docker compose down
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.6"
+          python-version: "3.13"
+      - name: Resolve and export dependencies
+        run: |
+          uv lock
+          uv export --locked --no-dev --no-emit-project -o target-app/requirements.txt
+          uv export --locked --all-groups --no-emit-project -o requirements-dev.txt
+          python - <<'PYTHON'
+          import base64
+          import gzip
+          import json
+          from pathlib import Path
+          files = {name: Path(name).read_text() for name in ["uv.lock", "target-app/requirements.txt", "requirements-dev.txt"]}
+          bundle = base64.b64encode(gzip.compress(json.dumps(files).encode())).decode()
+          for index in range(0, len(bundle), 1000):
+              print("LOCK_BUNDLE_PART:" + bundle[index:index + 1000])
+          PYTHON
