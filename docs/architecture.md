@@ -37,12 +37,12 @@ sequenceDiagram
     participant Pool as Gunicorn thread pool
     participant App as Flask handler
     participant Prom as Prometheus
-    User->>Pool: HTTP request; client clock starts
+    User->>Pool: HTTP request, client clock starts
     Note over Pool: Requests can queue before a handler runs
     Pool->>App: An available thread starts the handler
     App->>App: Start timer, simulate work, read or change users
     App->>App: Record handler duration and status
-    App-->>User: Response; client clock stops
+    App-->>User: Response, client clock stops
     Prom->>App: Scrape metrics every 5 seconds
     User->>Prom: Export client metrics over OTLP every 5 seconds
 ```
