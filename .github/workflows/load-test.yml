@@ -70,8 +70,8 @@ jobs:
           PUPPETEER_SKIP_DOWNLOAD: "true"
         run: |
           for source in /tmp/locust-diagrams/*.mmd; do
-            npx --yes --package=@mermaid-js/mermaid-cli@12.0.0 --package=puppeteer@25.0.0 \
-              mmdc -i "$source" -o "$source.png" -p /tmp/locust-diagrams/puppeteer.json -w 1600
+            npx --yes --package=@mermaid-js/mermaid-cli@12.0.0 --package=puppeteer@25.10.0 \
+              mmdc -i "$source" -o "$source.png" -p /tmp/locust-diagrams/puppeteer.json --size 1600
           done
       - name: Upload diagram previews
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
