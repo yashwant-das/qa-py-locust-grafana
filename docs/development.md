@@ -213,9 +213,13 @@ rule is tested synthetically; no artificial production endpoint is needed.
 ## CI and troubleshooting
 
 The `Quality checks` workflow retains the existing `load-test.yml` file path so
-badge and workflow URLs continue to work. Its only job, `Offline quality`, runs
-unit tests, Ruff lint/format, mypy, dependency consistency and full-file hooks on
-GitHub-hosted infrastructure. It starts no Docker service or Locust runner.
+badge and workflow URLs continue to work. `Offline quality` runs unit tests,
+Ruff lint/format, mypy, dependency consistency, export drift and full-file hooks.
+`Documentation diagrams` renders Mermaid from the README and maintained guides
+using Node 24.22.1, Mermaid CLI 12.0.0 and Puppeteer 25.10.0. PNG previews are
+uploaded as `documentation-diagrams` with one-day retention. Both jobs run on
+GitHub-hosted infrastructure; neither starts Docker or a Locust runner. Renderer
+versions are pinned in the workflow and reviewed when updating diagram tooling.
 
 Run the controlled integration pipeline locally after developer setup:
 
@@ -258,8 +262,8 @@ as PR #5; no repository settings were changed.
 The original showcase narrative, scenarios, thresholds, alerts, stack and quickstart
 remain on the landing page. Following the owner's later instruction, descriptions
 of CI-hosted Docker/load execution and uploaded artifacts now describe the local
-verification script and local report paths; the earlier content-retention check
-below predates that intentional scope change. The original PNG and 1,503-line historical plan remain
+verification script and local report paths. The original PNG and 1,503-line
+historical plan remain
 byte-for-byte intact. Current metric/lifecycle/operations details were carried
 into these guides while preserving their original historical source.
 
@@ -272,17 +276,17 @@ into these guides while preserving their original historical source.
 | Runtime-only smoke | Fresh nine-package environment: gunicorn WSGI config, health, seeded/missing user, creation and metrics checks pass without network sockets |
 | Dependency metadata | Installed dependency requirements satisfy Linux x86_64 and macOS arm64 Python 3.13 markers/specifiers; metadata-only Linux validation does not prove native-wheel execution |
 | Compose/workflow/dashboard | `docker compose config --quiet`, YAML/JSON parsing, all action SHA pins, least privilege, checkout settings, job timeouts and embedded Bash syntax pass; dashboard still has 11 panels |
-| Documentation retention | Every original README content block retained (requirements tree row expanded with quality tools); 18 local file/anchor links resolve; PNG and historical plan hashes match the base |
-| New diagram visual rendering | Pending; no local Mermaid renderer was available. Root diagram source is unchanged |
+| Documentation retention | Showcase narrative, scenarios, thresholds, alerts, stack and quickstart retained; CI/report text updated only for the owner-selected local execution. Local links resolve; protected PNG/history hashes match |
+| Diagram rendering | All three diagrams rendered in cloud run `41211101542` and previews inspected. Root diagram source is unchanged. Final refinements retain the same measurement boundaries and clarify startup prerequisites |
 | Registry resolution/lock/hash exports | Completed by the temporary cloud resolver in run `41210055820`; local `uv lock --check --offline` and export reproduction pass |
 | Docker build, promtool, live stack/spike/alerts/two-worker checks | Pending: Docker socket absent; `open -a Docker` could not locate an application. Native gunicorn binding to a task-owned loopback port also failed with sandbox `Operation not permitted` |
-| Hosted checks | Initial PR head `fd652d2`: `Offline quality` and temporary resolver both passed in run `41210055820`. Final locked-install head is verified separately below |
+| Hosted checks | Initial resolver/quality run `41210055820` passed. Locked installs and all quality checks passed on `15202a4`, `ddeddf5` and `f00735a`; both jobs passed in run `41211101542`. Python 3.13.18, 56 installed packages, 24 tests; final head is checked separately before handoff |
 | Repository enforcement and scanning | Availability/enforcement not yet verified; no settings changed |
 
-Live integration, diagram rendering and settings checks remain pending owner
-review, not approved exceptions. Owner: Yashwant Das. Review triggers: working
-local Docker for controlled integrations, a rendering environment for diagrams,
-and owner review for settings. Dependency locking is now implemented; it is no
+Live integration and settings checks remain pending owner review, not approved
+exceptions. Owner: Yashwant Das. Review triggers: working local Docker for
+controlled integrations and owner review for settings. Diagram rendering is now
+covered by a passing cloud check. Dependency locking is now implemented; it is no
 longer a pending requirements fallback. Keep implementation and evidence
 status separate; this is not a full-compliance or merge-readiness claim. The
 whole-branch review was performed inline, honoring this project's no-subagent
@@ -295,8 +299,8 @@ Protected baseline SHA-256 values:
 | `docs/dashboard.png` | `862c341397a0920fba1acad8559c86df977b14a5d0754e2bf0e6e0aa52063f4e` |
 | Historical simplification plan | `e5eb0e0f7687647ea7debbd9b00dab22a352a2650b407b64a3c327f120a256d8` |
 
-The proposed required cloud check is `Offline quality`; confirm its exact hosted
-context name before applying rules. Docker/Locust integration is an owner-selected
+The proposed required cloud checks are `Offline quality` and `Documentation
+diagrams`; confirm their exact hosted context names before applying rules. Docker/Locust integration is an owner-selected
 local verification task, not a cloud or self-hosted Actions job.
 Do not interpret workflow presence as required-check enforcement. Review secret
 scanning and Python code-scanning availability before enabling them separately.
@@ -316,3 +320,13 @@ summary are preserved in `scripts/verify-stack.sh`. The cloud workflow retains
 all code-quality and unit checks. Existing live Docker verification remains
 pending locally; it is no longer a hosted-CI requirement. The script passes Bash
 syntax review but its live execution remains unverified in this restricted host.
+
+### Final verification additions
+
+The local script was checked with isolated command doubles for a successful load,
+a failed latency/failure gate and missing telemetry. Each case cleans up only its
+own Compose project. A reproduced missing-summary regression was fixed: a failed
+load gate now still produces its report summary and exits with the original
+failure status. These probes verify shell orchestration, not live Docker,
+PromQL evaluation or measured performance. The original service definitions,
+11-panel dashboard and alert expressions are unchanged.

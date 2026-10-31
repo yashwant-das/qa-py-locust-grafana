@@ -18,10 +18,8 @@ overview and original spike screenshot; this guide explains the contracts behind
 flowchart TD
     App["Target app healthy"] --> Master["Locust master autostarts 20 users"]
     Prom["Prometheus healthy"] --> Master
-    Master --> Workers["Workers run ApiUser tasks"]
+    Master --> Workers["Workers run ApiUser and export OTLP"]
     Prom --> Grafana["Grafana datasource healthy"]
-    Workers --> Metrics["HTTP measurements and OTLP export"]
-    Metrics --> Prom
 ```
 
 Compose waits for the app and Prometheus health checks before starting the master.
@@ -34,14 +32,14 @@ volumes: this is a disposable demo stack, not a durable metrics service.
 ```mermaid
 sequenceDiagram
     participant User as Locust user
-    participant Pool as Gunicorn thread pool
+    participant Pool as Gunicorn threads
     participant App as Flask handler
     participant Prom as Prometheus
     User->>Pool: HTTP request, client clock starts
-    Note over Pool: Requests can queue before a handler runs
+    Note over Pool: Queue before handler
     Pool->>App: An available thread starts the handler
-    App->>App: Start timer, simulate work, read or change users
-    App->>App: Record handler duration and status
+    App->>App: Time handler work
+    App->>App: Observe duration and status
     App-->>User: Response, client clock stops
     Prom->>App: Scrape metrics every 5 seconds
     User->>Prom: Export client metrics over OTLP every 5 seconds

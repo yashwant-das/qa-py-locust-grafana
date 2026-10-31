@@ -189,13 +189,13 @@ The owner authorized execution with “Proceed”. See [development evidence](..
 
 | Task | Status |
 | --- | --- |
-| 1: Documentation | Added guides and agent guidance; original README content retained, original PNG/history unchanged; new diagram visual rendering pending |
-| 2: Dependencies | Python baseline, typing, tool configuration and fully pinned requirements implemented; uv lock/hash exports, registry refresh and live compatibility verification blocked |
+| 1: Documentation | Guides and agent guidance added; showcase retained, CI descriptions updated per owner instruction; protected PNG/history unchanged; cloud rendering verified |
+| 2: Dependencies | Python baseline, typing, tool configuration, uv lock, hashed exports and cloud locked installs implemented; application/image baselines deliberately retained |
 | 3: Staged gates | Implemented and verified with actual commit probes and full-file checks |
-| 4: CI | Implemented, syntax/configuration checked; promtool fixture execution and hosted checks pending |
-| 5: Complete verification | Clean cached installs and offline/runtime checks pass; Docker, live load/telemetry/alerts, diagram rendering, settings and current-head hosted evidence remain pending |
+| 4: CI | Cloud quality and documentation rendering pass; Docker/promtool/Locust checks moved to local script as instructed |
+| 5: Verification | Offline/runtime checks, locked cloud quality, rendering and isolated local-script probes pass; live local Docker/load/telemetry/alerts and owner settings review remain pending |
 
-The requirements fallback is a recorded pending adoption item, not an owner-approved exception. No merge, remote settings change, push or PR was performed. This execution does not claim full compliance.
+The earlier requirements fallback was replaced by the committed uv lock and hashed exports. PR #5 is open; no merge or remote settings change was performed. Live local checks remain explicitly unverified in this restricted host.
 
 ## Superseding owner instruction: execution placement
 
