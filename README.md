@@ -1,4 +1,4 @@
-# qa-py-locust-grafana
+# Load Testing & Observability with Locust, Prometheus and Grafana
 
 Distributed load testing with Locust against a sample Flask API, with the client's view and the server's view of the same test on one Grafana dashboard, all in one Docker Compose stack.
 
