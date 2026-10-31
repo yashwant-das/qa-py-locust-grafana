@@ -209,3 +209,7 @@ uploaded load artifacts and a required hosted integration check.
 ## Dependency completion and PR publication
 
 The owner authorized completing the work and creating a PR. [PR #5](https://github.com/yashwant-das/qa-py-locust-grafana/pull/5) is open. Its initial service-free quality job passed; a temporary resolver generated `uv.lock` and both hashed exports with uv 0.13.6. The final workflow removes the resolver, installs with `uv sync --locked` and checks export drift. This supersedes the earlier pending-lock/fallback status. Docker/load verification remains local by explicit instruction.
+
+## Final handoff verification
+
+The locked cloud quality and documentation diagram jobs both passed in run `41211367229`; all three rendered previews were inspected. The temporary dependency resolver and preview-transfer step were removed. Only service-free quality and documentation rendering remain in cloud CI; local Docker/load/alert execution is documented separately. The protected screenshot and historical plan retain their original hashes.

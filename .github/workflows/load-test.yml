@@ -79,15 +79,3 @@ jobs:
           name: documentation-diagrams
           path: /tmp/locust-diagrams/*.png
           retention-days: 1
-      - name: Transfer previews for visual review
-        run: |
-          python3 - <<'PYTHON'
-          import base64
-          import gzip
-          import json
-          from pathlib import Path
-          files = {path.name: base64.b64encode(path.read_bytes()).decode() for path in Path("/tmp/locust-diagrams").glob("*.png")}
-          bundle = base64.b64encode(gzip.compress(json.dumps(files).encode())).decode()
-          for index in range(0, len(bundle), 1000):
-              print("DIAGRAM_BUNDLE_PART:" + bundle[index:index + 1000])
-          PYTHON

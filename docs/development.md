@@ -277,10 +277,10 @@ into these guides while preserving their original historical source.
 | Dependency metadata | Installed dependency requirements satisfy Linux x86_64 and macOS arm64 Python 3.13 markers/specifiers; metadata-only Linux validation does not prove native-wheel execution |
 | Compose/workflow/dashboard | `docker compose config --quiet`, YAML/JSON parsing, all action SHA pins, least privilege, checkout settings, job timeouts and embedded Bash syntax pass; dashboard still has 11 panels |
 | Documentation retention | Showcase narrative, scenarios, thresholds, alerts, stack and quickstart retained; CI/report text updated only for the owner-selected local execution. Local links resolve; protected PNG/history hashes match |
-| Diagram rendering | All three diagrams rendered in cloud run `41211101542` and previews inspected. Root diagram source is unchanged. Final refinements retain the same measurement boundaries and clarify startup prerequisites |
+| Diagram rendering | All three diagrams rendered in cloud run `41211367229` and final previews inspected. Root diagram source is unchanged; new startup and request-lifecycle diagrams are readable with all labels/edges visible |
 | Registry resolution/lock/hash exports | Completed by the temporary cloud resolver in run `41210055820`; local `uv lock --check --offline` and export reproduction pass |
 | Docker build, promtool, live stack/spike/alerts/two-worker checks | Pending: Docker socket absent; `open -a Docker` could not locate an application. Native gunicorn binding to a task-owned loopback port also failed with sandbox `Operation not permitted` |
-| Hosted checks | Initial resolver/quality run `41210055820` passed. Locked installs and all quality checks passed on `15202a4`, `ddeddf5` and `f00735a`; both jobs passed in run `41211101542`. Python 3.13.18, 56 installed packages, 24 tests; final head is checked separately before handoff |
+| Hosted checks | Initial resolver/quality run `41210055820` passed. Locked installs and all quality checks passed on `15202a4`, `ddeddf5` and `f00735a`; both jobs passed in runs `41211101542` and `41211367229`. Python 3.13.18, 56 installed packages, 24 tests; final head is checked separately before handoff |
 | Repository enforcement and scanning | Availability/enforcement not yet verified; no settings changed |
 
 Live integration and settings checks remain pending owner review, not approved
